@@ -4,10 +4,9 @@ pygame.init()
 info = pygame.display.Info()
 WIDTH, HEIGHT = info.current_w, info.current_h
 screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
-pygame.display.set_caption('ShadowStrike X Touch')
+pygame.display.set_caption('ShadowStrike X AutoFire')
 clock = pygame.time.Clock()
 font = pygame.font.SysFont('Arial', 36, bold=True)
-small = pygame.font.SysFont('Arial', 24)
 
 player_x = WIDTH // 2
 player_y = HEIGHT - 320
@@ -16,14 +15,13 @@ enemies = []
 stars = []
 score = 0
 lives = 5
+shoot_timer = 0
 
 for i in range(100):
     stars.append([random.randint(0, WIDTH), random.randint(0, HEIGHT), random.randint(1, 3)])
 
 for i in range(7):
     enemies.append([random.randint(80, WIDTH-80), random.randint(-800, -50), random.randint(3, 6)])
-
-FIRE_BTN = pygame.Rect(WIDTH-140, HEIGHT-200, 100, 100)
 
 running = True
 while running:
@@ -42,12 +40,13 @@ while running:
 
         if event.type == pygame.MOUSEMOTION:
             x, y = event.pos
-            if y < HEIGHT - 120:
-                player_x = max(50, min(WIDTH-50, x))
+            player_x = max(50, min(WIDTH-50, x))
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if FIRE_BTN.collidepoint(event.pos):
-                bullets.append([player_x, player_y-40])
+    # Auto Fire
+    shoot_timer += 1
+    if shoot_timer >= 10:
+        bullets.append([player_x, player_y-40])
+        shoot_timer = 0
 
     # Fighter Jet
     pygame.draw.polygon(screen, (170,170,200), [
@@ -96,9 +95,6 @@ while running:
 
     screen.blit(font.render(f'SCORE: {score}', True, (255,220,0)), (20,20))
     screen.blit(font.render(f'❤ {lives}', True, (255,70,70)), (20,65))
-
-    pygame.draw.circle(screen, (220,40,40), FIRE_BTN.center, 50)
-    screen.blit(small.render('FIRE', True, (255,255,255)), (FIRE_BTN.x+18, FIRE_BTN.y+35))
 
     if lives <= 0:
         txt = font.render('GAME OVER', True, (255,0,0))
