@@ -4,13 +4,13 @@ pygame.init()
 info = pygame.display.Info()
 WIDTH, HEIGHT = info.current_w, info.current_h
 screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
-pygame.display.set_caption('ShadowStrike X Ultimate')
+pygame.display.set_caption('ShadowStrike X Touch')
 clock = pygame.time.Clock()
 font = pygame.font.SysFont('Arial', 36, bold=True)
 small = pygame.font.SysFont('Arial', 24)
 
 player_x = WIDTH // 2
-player_y = HEIGHT - 330
+player_y = HEIGHT - 320
 bullets = []
 enemies = []
 stars = []
@@ -23,12 +23,7 @@ for i in range(100):
 for i in range(7):
     enemies.append([random.randint(80, WIDTH-80), random.randint(-800, -50), random.randint(3, 6)])
 
-LEFT_BTN = pygame.Rect(40, HEIGHT-210, 90, 90)
-RIGHT_BTN = pygame.Rect(150, HEIGHT-210, 90, 90)
-FIRE_BTN = pygame.Rect(WIDTH-140, HEIGHT-210, 100, 100)
-
-move_left = False
-move_right = False
+FIRE_BTN = pygame.Rect(WIDTH-140, HEIGHT-200, 100, 100)
 
 running = True
 while running:
@@ -45,23 +40,16 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
+        if event.type == pygame.MOUSEMOTION:
+            x, y = event.pos
+            if y < HEIGHT - 120:
+                player_x = max(50, min(WIDTH-50, x))
+
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if LEFT_BTN.collidepoint(event.pos):
-                move_left = True
-            if RIGHT_BTN.collidepoint(event.pos):
-                move_right = True
             if FIRE_BTN.collidepoint(event.pos):
                 bullets.append([player_x, player_y-40])
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            move_left = False
-            move_right = False
-
-    if move_left and player_x > 50:
-        player_x -= 12
-    if move_right and player_x < WIDTH-50:
-        player_x += 12
-
+    # Fighter Jet
     pygame.draw.polygon(screen, (170,170,200), [
         (player_x, player_y-60),
         (player_x-45, player_y+45),
@@ -109,12 +97,7 @@ while running:
     screen.blit(font.render(f'SCORE: {score}', True, (255,220,0)), (20,20))
     screen.blit(font.render(f'❤ {lives}', True, (255,70,70)), (20,65))
 
-    pygame.draw.circle(screen, (40,120,255), LEFT_BTN.center, 45)
-    pygame.draw.circle(screen, (40,120,255), RIGHT_BTN.center, 45)
     pygame.draw.circle(screen, (220,40,40), FIRE_BTN.center, 50)
-
-    screen.blit(font.render('◀', True, (255,255,255)), (LEFT_BTN.x+25, LEFT_BTN.y+20))
-    screen.blit(font.render('▶', True, (255,255,255)), (RIGHT_BTN.x+25, RIGHT_BTN.y+20))
     screen.blit(small.render('FIRE', True, (255,255,255)), (FIRE_BTN.x+18, FIRE_BTN.y+35))
 
     if lives <= 0:
