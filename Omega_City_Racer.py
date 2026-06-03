@@ -1,87 +1,253 @@
-# Omega City Racer Phase 1
-import pygame, random, math
+# Omega City Racer - Beast Mode Edition
+import pygame
+import random
+import math
+import os
 
+# Initialize Pygame
 pygame.init()
+
+# Screen Setup - Optimized for Android and Windows
 info = pygame.display.Info()
+# Use a standard 9:16 aspect ratio for portrait mode if possible, otherwise fullscreen
+IS_ANDROID = hasattr(pygame, 'android') or info.current_w < info.current_h
 W, H = info.current_w, info.current_h
-screen = pygame.display.set_mode((W, H), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((W, H), pygame.FULLSCREEN | pygame.SCALED)
+pygame.display.set_caption("Omega City Racer - Beast Mode")
+
 clock = pygame.time.Clock()
-font = pygame.font.SysFont('Arial', 34, True)
+font = pygame.font.SysFont('Arial', 40, True)
 
-car_x = W//2
-car_y = H-200
-speed = 0
-score = 0
-road_offset = 0
-traffic = []
-coins = []
+# Load Assets
+ASSETS_PATH = os.path.join(os.path.dirname(__file__), 'assets')
 
-for i in range(6):
-    traffic.append([random.randint(100, W-100), random.randint(-800, -100), random.randint(6, 10)])
+def load_image(name, scale=None):
+    path = os.path.join(ASSETS_PATH, name)
+    try:
+        img = pygame.image.load(path).convert_alpha()
+        if scale:
+            img = pygame.transform.smoothscale(img, scale)
+        return img
+    except:
+        # Fallback to a colored surface if image fails to load
+        surf = pygame.Surface(scale if scale else (50, 50))
+        surf.fill((255, 0, 255))
+        return surf
 
-for i in range(10):
-    coins.append([random.randint(100, W-100), random.randint(-1200, 0)])
+# Sprite Sizes
+PLAYER_SIZE = (int(W * 0.15), int(W * 0.15 * 1.8))
+TRAFFIC_SIZE = (int(W * 0.14), int(W * 0.14 * 1.7))
+COIN_SIZE = (int(W * 0.08), int(W * 0.08))
 
-running = True
-while running:
-    screen.fill((20,20,25))
+player_img = load_image('player_car.png', PLAYER_SIZE)
+traffic_imgs = [
+    load_image('traffic_car_1.png', TRAFFIC_SIZE),
+    load_image('traffic_car_2.png', TRAFFIC_SIZE)
+]
+coin_img = load_image('coin.png', COIN_SIZE)
+road_img = load_image('road_texture.png', (W, H))
+bg_img = load_image('city_background.png', (W, H))
 
-    # Road
-    road_offset += 20
-    if road_offset > 80:
-        road_offset = 0
+# Game State
+class Game:
+    def __init__(self):
+        self.reset()
+        
+    def reset(self):
+        self.car_x = W // 2 - PLAYER_SIZE[0] // 2
+        self.car_y = H - PLAYER_SIZE[1] - 100
+        self.target_x = self.car_x
+        self.speed = 15
+        self.score = 0
+        self.road_offset = 0
+        self.traffic = []
+        self.coins = []
+        self.particles = []
+        self.speed_lines = []
+        self.shake_intensity = 0
+        self.running = True
+        self.game_over = False
+        
+        # Initialize Traffic
+        for _ in range(4):
+            self.spawn_traffic()
+            
+        # Initialize Coins
+        for _ in range(5):
+            self.spawn_coin()
 
-    pygame.draw.rect(screen, (40,40,40), (W//2-250, 0, 500, H))
+    def spawn_traffic(self):
+        lane_width = W // 3
+        lane = random.randint(0, 2)
+        x = lane * lane_width + (lane_width - TRAFFIC_SIZE[0]) // 2
+        y = random.randint(-H, -200)
+        speed = random.randint(8, 14)
+        img = random.choice(traffic_imgs)
+        self.traffic.append({'x': x, 'y': y, 'speed': speed, 'img': img})
 
-    for i in range(0, H, 80):
-        pygame.draw.rect(screen, (255,255,255), (W//2-5, i+road_offset, 10, 40))
+    def spawn_coin(self):
+        x = random.randint(50, W - 50)
+        y = random.randint(-H, -100)
+        self.coins.append({'x': x, 'y': y})
 
-    # Touch control
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        if event.type == pygame.MOUSEMOTION:
-            car_x = max(W//2-220, min(W//2+220, event.pos[0]))
+    def create_particles(self, x, y, color):
+        for _ in range(10):
+            self.particles.append({
+                'x': x, 'y': y,
+                'vx': random.uniform(-5, 5),
+                'vy': random.uniform(-5, 5),
+                'life': 255,
+                'color': color
+            })
 
-    # Traffic cars
-    for t in traffic:
-        t[1] += t[2]
+    def handle_input(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            
+            # Android/Touch and Mouse Support
+            if event.type in [pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN]:
+                self.target_x = event.pos[0] - PLAYER_SIZE[0] // 2
+            
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.running = False
+                if self.game_over and event.key == pygame.K_SPACE:
+                    self.reset()
 
-        pygame.draw.rect(screen, (200,50,50), (t[0], t[1], 60, 100))
+        # Smooth Movement
+        dx = self.target_x - self.car_x
+        self.car_x += dx * 0.2
+        self.car_x = max(0, min(W - PLAYER_SIZE[0], self.car_x))
 
-        if t[1] > H:
-            t[0] = random.randint(W//2-220, W//2+220)
-            t[1] = random.randint(-800, -100)
-            score += 5
+    def update(self):
+        if self.game_over:
+            if self.shake_intensity > 0:
+                self.shake_intensity -= 1
+            return
 
-        if abs(car_x - t[0]) < 50 and abs(car_y - t[1]) < 80:
-            running = False
+        # Screen Shake decay
+        if self.shake_intensity > 0:
+            self.shake_intensity -= 1
 
-    # Coins
-    for c in coins:
-        c[1] += 10
-        pygame.draw.circle(screen, (255,215,0), (c[0], c[1]), 12)
+        # Speed Lines
+        if random.random() < 0.3:
+            self.speed_lines.append([random.randint(0, W), 0, random.randint(10, 30)])
 
-        if c[1] > H:
-            c[0] = random.randint(W//2-220, W//2+220)
-            c[1] = random.randint(-1200, 0)
+        for line in self.speed_lines[:]:
+            line[1] += 40
+            if line[1] > H:
+                self.speed_lines.remove(line)
 
-        if math.hypot(car_x-c[0], car_y-c[1]) < 40:
-            score += 10
-            c[1] = -100
+        # Road Animation
+        self.road_offset += self.speed
+        if self.road_offset >= H:
+            self.road_offset = 0
 
-    # Car (player)
-    pygame.draw.rect(screen, (0,200,255), (car_x, car_y, 70, 120))
-    pygame.draw.rect(screen, (255,255,255), (car_x+10, car_y+20, 50, 60))
+        # Update Traffic
+        for t in self.traffic:
+            t['y'] += t['speed'] + (self.score // 100) # Difficulty increase
+            
+            # Collision Detection
+            player_rect = pygame.Rect(self.car_x + 10, self.car_y + 10, PLAYER_SIZE[0] - 20, PLAYER_SIZE[1] - 20)
+            traffic_rect = pygame.Rect(t['x'] + 5, t['y'] + 5, TRAFFIC_SIZE[0] - 10, TRAFFIC_SIZE[1] - 10)
+            
+            if player_rect.colliderect(traffic_rect):
+                self.create_particles(self.car_x + PLAYER_SIZE[0]//2, self.car_y + PLAYER_SIZE[1]//2, (255, 100, 0))
+                self.shake_intensity = 20
+                self.game_over = True
 
-    # HUD
-    panel = pygame.Surface((260, 90), pygame.SRCALPHA)
-    panel.fill((0,0,0,120))
-    screen.blit(panel, (10,10))
+            if t['y'] > H:
+                self.traffic.remove(t)
+                self.spawn_traffic()
+                self.score += 5
 
-    screen.blit(font.render(f"SCORE {score}", True, (0,255,255)), (25,25))
+        # Update Coins
+        for c in self.coins:
+            c['y'] += self.speed
+            
+            if math.hypot(self.car_x + PLAYER_SIZE[0]//2 - c['x'], self.car_y + PLAYER_SIZE[1]//2 - c['y']) < 50:
+                self.score += 20
+                self.create_particles(c['x'], c['y'], (255, 255, 0))
+                self.coins.remove(c)
+                self.spawn_coin()
+            
+            elif c['y'] > H:
+                self.coins.remove(c)
+                self.spawn_coin()
 
-    pygame.display.flip()
+        # Update Particles
+        for p in self.particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= 10
+            if p['life'] <= 0:
+                self.particles.remove(p)
+
+    def draw(self):
+        # Screen Shake Offset
+        offset_x = random.randint(-self.shake_intensity, self.shake_intensity)
+        offset_y = random.randint(-self.shake_intensity, self.shake_intensity)
+
+        # Background Parallax
+        screen.blit(bg_img, (offset_x, offset_y))
+        
+        # Animated Road
+        screen.blit(road_img, (0, self.road_offset))
+        screen.blit(road_img, (0, self.road_offset - H))
+
+        # Draw Coins with Glow
+        for c in self.coins:
+            # Simple glow effect
+            glow_size = COIN_SIZE[0] + int(math.sin(pygame.time.get_ticks() * 0.01) * 5)
+            screen.blit(coin_img, (c['x'] - COIN_SIZE[0]//2, c['y'] - COIN_SIZE[1]//2))
+
+        # Draw Traffic
+        for t in self.traffic:
+            screen.blit(t['img'], (t['x'], t['y']))
+
+        # Draw Player with Engine Glow
+        screen.blit(player_img, (self.car_x, self.car_y))
+        # Engine Flame Effect
+        flame_h = random.randint(10, 25)
+        pygame.draw.ellipse(screen, (0, 200, 255), (self.car_x + PLAYER_SIZE[0]*0.2, self.car_y + PLAYER_SIZE[1], PLAYER_SIZE[0]*0.2, flame_h))
+        pygame.draw.ellipse(screen, (0, 200, 255), (self.car_x + PLAYER_SIZE[0]*0.6, self.car_y + PLAYER_SIZE[1], PLAYER_SIZE[0]*0.2, flame_h))
+
+        # Draw Speed Lines
+        for line in self.speed_lines:
+            pygame.draw.line(screen, (100, 100, 255), (line[0], line[1]), (line[0], line[1] + line[2]), 2)
+
+        # Draw Particles
+        for p in self.particles:
+            s = pygame.Surface((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(s, p['color'] + (p['life'],), (5, 5), 5)
+            screen.blit(s, (p['x'] + offset_x, p['y'] + offset_y))
+
+        # HUD
+        score_txt = font.render(f"NEON SCORE: {self.score}", True, (0, 255, 255))
+        screen.blit(score_txt, (20, 20))
+
+        if self.game_over:
+            overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            screen.blit(overlay, (0, 0))
+            msg = font.render("SYSTEM CRITICAL: GAME OVER", True, (255, 50, 50))
+            retry = font.render("TOUCH TO REBOOT", True, (255, 255, 255))
+            screen.blit(msg, (W//2 - msg.get_width()//2, H//2 - 50))
+            screen.blit(retry, (W//2 - retry.get_width()//2, H//2 + 20))
+            
+            # Handle restart on touch
+            if pygame.mouse.get_pressed()[0]:
+                self.reset()
+
+        pygame.display.flip()
+
+# Main Loop
+game = Game()
+while game.running:
+    game.handle_input()
+    game.update()
+    game.draw()
     clock.tick(60)
 
 pygame.quit()
