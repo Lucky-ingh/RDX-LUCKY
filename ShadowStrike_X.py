@@ -67,7 +67,7 @@ class Game:
         
         for _ in range(100):
             self.stars.append([random.randint(0, W), random.randint(0, H), random.randint(1, 5)])
-        for _ in range(8):
+        for _ in range(5):
             self.spawn_enemy()
 
     def spawn_enemy(self):
@@ -192,7 +192,9 @@ class Game:
 
         # Bullets
         for b in self.bullets:
-            pygame.draw.rect(screen, (0, 255, 255), (b[0]-3, b[1], 6, 20))
+            # Bigger neon bullets with a slight glow
+            pygame.draw.rect(screen, (0, 255, 255), (b[0]-6, b[1], 12, 35))
+            pygame.draw.rect(screen, (255, 255, 255), (b[0]-2, b[1]+5, 4, 25))
 
         # Enemy Bullets
         for eb in self.enemy_bullets:
