@@ -1,4 +1,4 @@
-🚀 NeonForgeX
+🚀✨ NeonForgeX ✨🚀
 
 
 NeonForgeX is a futuristic Python-based cyber game engine built for creating high-speed neon arcade experiences, combat racing systems, and experimental interactive gameplay.
